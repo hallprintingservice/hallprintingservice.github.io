@@ -17,7 +17,8 @@ HallPrinting/
 │   ├── account.js    কাস্টমারের হিসাব ও WhatsApp মেসেজ
 │   ├── app.js        কাস্টমার পেজের বাটন ও সাবমিট
 │   ├── auth.js       অ্যাডমিন লগইন
-│   └── admin.js      অ্যাডমিন প্যানেল
+│   ├── admin.js      অ্যাডমিন প্যানেল
+│   └── manual.js     ফাইল ছাড়া নতুন এন্ট্রি
 ├── assets/images/    লোগো
 └── apps-script/
     └── Code.js       Google Apps Script (ওয়েবসাইটে আপলোড করবেন না)

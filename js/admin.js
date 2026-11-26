@@ -5,6 +5,9 @@
 let D = null;
 let period = 'today';
 let custFilter = 'all';
+let payName = '';        // যার টাকা জমার ফর্ম খোলা
+let payMode = 'add';     // add = যোগ, set = এডিট
+let paySaving = false;
 
 $('refreshBtn').addEventListener('click', async () => {
   const b = $('refreshBtn');
@@ -163,9 +166,98 @@ function renderCustomers(){
     return `<div class="crow">
       <div><div class="cn">${esc(c.name)}</div><div class="cs">বিল ${tk(c.bill)} • পরিশোধ ${tk(c.paid)} • ${c.files} ফাইল</div></div>
       <div class="cb"><div class="amt ${cls}">${amt}</div><div class="lbl ${cls}">${lbl}</div></div>
+      ${c.name === payName ? payFormHTML(c) : `<button class="btn-pay" data-name="${esc(c.name)}">টাকা জমা / এডিট</button>`}
     </div>`;
   }).join('');
+  updatePayPreview();
 }
+
+/* ---------- টাকা জমা (শেষ প্রিন্টের row-তে) ---------- */
+function payFormHTML(c){
+  const l = c.last;
+  if (!l) return '<div class="pay">এই সুবিধা চালু করতে নতুন Code.js টি Apps Script এ deploy করুন।</div>';
+  return `<div class="pay">
+    <div class="pay-info">
+      শেষ প্রিন্ট: ${esc(l.time || '—')} • ${esc(l.type || '—')}<br>
+      ওই row-তে বিল <b>${tk(l.bill)}</b> • আগে জমা <b>${tk(l.paid)}</b>
+    </div>
+    <div class="seg">
+      <button data-m="add" class="${payMode === 'add' ? 'active' : ''}">টাকা যোগ করুন</button>
+      <button data-m="set" class="${payMode === 'set' ? 'active' : ''}">জমা এডিট করুন</button>
+    </div>
+    <input type="text" id="payInput" inputmode="decimal" autocomplete="off"
+      placeholder="${payMode === 'add' ? 'কত টাকা দিল' : 'মোট জমা কত হবে'}"
+      value="${payMode === 'set' ? l.paid : ''}">
+    <div class="pay-preview" id="payPreview"></div>
+    <div class="pa">
+      <button class="btn-open btn-cancel">বাতিল</button>
+      <button class="btn-done btn-save" disabled>সেভ করুন</button>
+    </div>
+  </div>`;
+}
+
+// ইনপুট থেকে নতুন হিসাব; ভুল বা অপরিবর্তিত হলে null
+function payCalc(){
+  const c = D.customers.find(x => x.name === payName);
+  const input = $('payInput');
+  if (!c || !input) return null;
+  const v = input.value.trim();
+  if (!/^(\d+(\.\d{0,2})?|\.\d{1,2})$/.test(v)) return null;
+  const round = n => Math.round(n * 100) / 100;
+  const newPaid = round(payMode === 'add' ? c.last.paid + Number(v) : Number(v));
+  if (newPaid === round(c.last.paid)) return null;
+  return { c, newPaid, balance: round(c.balance - (newPaid - c.last.paid)) };
+}
+
+const balanceText = b => b > 0 ? 'বাকি ' + tk(b) : b < 0 ? 'অগ্রিম ' + tk(-b) : 'পরিশোধিত';
+
+function updatePayPreview(){
+  if (!$('payInput')) return;
+  const r = payCalc();
+  $('payPreview').innerHTML = r
+    ? `ওই row-তে জমা হবে <b>${tk(r.newPaid)}</b> • হিসাব হবে <b>${balanceText(r.balance)}</b>`
+    : '';
+  document.querySelector('.btn-save').disabled = !r || paySaving;
+}
+
+async function savePay(){
+  const r = payCalc();
+  if (!r || paySaving) return;
+  const l = r.c.last;
+  if (!confirm(`${r.c.name}\nজমা: ${tk(l.paid)} → ${tk(r.newPaid)}\nহিসাব হবে: ${balanceText(r.balance)}\n\nসেভ করবেন?`)) return;
+  paySaving = true;
+  const btn = document.querySelector('.btn-save');
+  btn.disabled = true; btn.textContent = 'হচ্ছে…';
+  try{
+    const res = await api({action: 'setPaid', row: l.row, name: r.c.name, oldPaid: l.paid, newPaid: r.newPaid});
+    if (res.status === 'ok'){
+      D = res.data; payName = '';
+      renderAll();
+      alert('টাকা সেভ হয়েছে ✓');
+    } else {
+      alert(res.message || 'সমস্যা হয়েছে');
+    }
+  }catch(err){
+    alert('সংযোগে সমস্যা হয়েছে। রিফ্রেশ করে দেখুন টাকা সেভ হয়েছে কিনা।');
+  }
+  paySaving = false;
+  if ($('payInput')){ btn.textContent = 'সেভ করুন'; updatePayPreview(); }
+}
+
+$('list-customers').addEventListener('click', e => {
+  const open = e.target.closest('.btn-pay');
+  const mode = e.target.closest('.pay .seg button');
+  if (e.target.closest('.btn-save')) return savePay();
+  if (paySaving) return;
+  if (open){ payName = open.dataset.name; payMode = 'add'; }
+  else if (mode){ payMode = mode.dataset.m; }
+  else if (e.target.closest('.btn-cancel')){ payName = ''; }
+  else return;
+  renderCustomers();
+  if ($('payInput')) $('payInput').focus();
+});
+$('list-customers').addEventListener('input', e => { if (e.target.id === 'payInput') updatePayPreview(); });
+$('list-customers').addEventListener('keydown', e => { if (e.target.id === 'payInput' && e.key === 'Enter') savePay(); });
 
 $('custSearch').addEventListener('input', () => D && renderCustomers());
 $('custSort').addEventListener('change', () => D && renderCustomers());
