@@ -156,6 +156,12 @@ input:focus, select:focus{border-color:var(--gold-2);}
 .crow .cb .amt{font-family:'Baloo 2',sans-serif; font-weight:800; font-size:17px;}
 .crow .cb .lbl{font-size:10.5px; font-weight:700;}
 
+/* ---------- কাস্টমারের হিসাব পেজ ---------- */
+.open-st{cursor:pointer;}
+#list-customers.detail{display:block;}
+.btn-back{margin-top:12px; color:var(--gold-2);}
+.back-site{display:block; margin-top:16px; font-size:13px; color:#7bb2ff; text-decoration:none;}
+
 /* ---------- টাকা জমা ---------- */
 .crow > div:first-child{flex:1; min-width:0;}
 .btn-pay{

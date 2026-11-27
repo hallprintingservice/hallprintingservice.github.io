@@ -8,6 +8,8 @@ let custFilter = 'all';
 let payName = '';        // যার টাকা জমার ফর্ম খোলা
 let payMode = 'add';     // add = যোগ, set = এডিট
 let paySaving = false;
+let viewName = '';       // যার হিসাব পেজ খোলা
+let viewCache = null;    // {data: D, name, statement}
 
 $('refreshBtn').addEventListener('click', async () => {
   const b = $('refreshBtn');
@@ -138,6 +140,12 @@ $('list-pending').addEventListener('click', async e => {
 });
 
 function renderCustomers(){
+  const viewed = viewName && D.customers.find(c => c.name === viewName);
+  if (!viewed) viewName = '';
+  $('custTools').classList.toggle('hidden', !!viewed);
+  $('list-customers').classList.toggle('detail', !!viewed);
+  if (viewed) return renderDetail(viewed);
+
   const q = $('custSearch').value.trim().toLowerCase();
   const sort = $('custSort').value;
 
@@ -164,12 +172,39 @@ function renderCustomers(){
     else if (c.balance < 0){ amt = tk(-c.balance); lbl = 'অগ্রিম'; cls = 'c-gold'; }
     else { amt = '৳0'; lbl = 'পরিশোধিত'; cls = 'c-ok'; }
     return `<div class="crow">
-      <div><div class="cn">${esc(c.name)}</div><div class="cs">বিল ${tk(c.bill)} • পরিশোধ ${tk(c.paid)} • ${c.files} ফাইল</div></div>
+      <div class="open-st" data-view="${esc(c.name)}" role="button" tabindex="0"><div class="cn">${esc(c.name)} ›</div><div class="cs">বিল ${tk(c.bill)} • পরিশোধ ${tk(c.paid)} • ${c.files} ফাইল</div></div>
       <div class="cb"><div class="amt ${cls}">${amt}</div><div class="lbl ${cls}">${lbl}</div></div>
       ${c.name === payName ? payFormHTML(c) : `<button class="btn-pay" data-name="${esc(c.name)}">টাকা জমা / এডিট</button>`}
     </div>`;
   }).join('');
   updatePayPreview();
+}
+
+/* ---------- এক কাস্টমারের হিসাব পেজ ---------- */
+function renderDetail(c){
+  const cached = viewCache && viewCache.data === D && viewCache.name === c.name;
+  $('list-customers').innerHTML = `
+    <button class="btn-pay btn-back">← সব কাস্টমার</button>
+    <div class="crow">
+      ${c.name === payName ? `<div><div class="cn">${esc(c.name)}</div></div>${payFormHTML(c)}`
+        : `<button class="btn-pay" data-name="${esc(c.name)}">টাকা জমা / এডিট</button>`}
+    </div>
+    <div id="custStatement">${cached ? statementHTML(viewCache.statement) : '<div class="st-empty">হিসাব আনা হচ্ছে…</div>'}</div>`;
+  updatePayPreview();
+  if (!cached) loadStatement(c.name);
+}
+
+async function loadStatement(name){
+  const data = D;
+  let error;
+  try{
+    const r = await api({action: 'statement', name});
+    if (r.status === 'ok') viewCache = {data, name, statement: r.data};
+    else error = r.message === 'Unknown action' ? 'আগে নতুন Code.js টি deploy করুন' : r.message;
+  }catch(e){ error = 'সংযোগে সমস্যা হয়েছে। রিফ্রেশ করুন।'; }
+  if (D !== data || viewName !== name) return;      // এর মধ্যে অন্য পেজে গেছে
+  $('custStatement').innerHTML = error
+    ? `<div class="st-empty">${esc(error)}</div>` : statementHTML(viewCache.statement);
 }
 
 /* ---------- টাকা জমা (শেষ প্রিন্টের row-তে) ---------- */
@@ -247,9 +282,12 @@ async function savePay(){
 $('list-customers').addEventListener('click', e => {
   const open = e.target.closest('.btn-pay');
   const mode = e.target.closest('.pay .seg button');
+  const view = e.target.closest('[data-view]');
   if (e.target.closest('.btn-save')) return savePay();
   if (paySaving) return;
-  if (open){ payName = open.dataset.name; payMode = 'add'; }
+  if (view){ viewName = view.dataset.view; payName = ''; viewCache = null; window.scrollTo(0, 0); }
+  else if (e.target.closest('.btn-back')){ viewName = ''; payName = ''; }
+  else if (open){ payName = open.dataset.name; payMode = 'add'; }
   else if (mode){ payMode = mode.dataset.m; }
   else if (e.target.closest('.btn-cancel')){ payName = ''; }
   else return;
@@ -257,7 +295,11 @@ $('list-customers').addEventListener('click', e => {
   if ($('payInput')) $('payInput').focus();
 });
 $('list-customers').addEventListener('input', e => { if (e.target.id === 'payInput') updatePayPreview(); });
-$('list-customers').addEventListener('keydown', e => { if (e.target.id === 'payInput' && e.key === 'Enter') savePay(); });
+$('list-customers').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (e.target.id === 'payInput') savePay();
+  else if (e.target.dataset.view) e.target.click();
+});
 
 $('custSearch').addEventListener('input', () => D && renderCustomers());
 $('custSort').addEventListener('change', () => D && renderCustomers());
