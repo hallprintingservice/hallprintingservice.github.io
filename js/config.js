@@ -3,10 +3,13 @@
    ===================================================== */
 
 // Google Apps Script Web App URL (দুই পেজই এটা ব্যবহার করে)
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwGwthsCCAxH0DX2-ueLDSBW0JJuJOULqtkghDlPmhvdVnIS3nsHy5mhuSPnzFyOzg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzUywkEhr3OapHuvLWD29NsdgHMY727fTj0vPKSv8Kv1PQ96ZkJV3iCpd6TVt24Ojm10g/exec";
 
 // ---- WhatsApp number (country code সহ, + ছাড়া) ----
 const WHATSAPP_NUMBER = "8801521794786";
+
+// ---- Facebook মেসেজ লিংক ----
+const FACEBOOK_URL = "https://www.facebook.com/messages/e2ee/t/9595486410564983";
 
 // ---- Print type catalogue (single source of truth for every file card) ----
 const PRINT_TYPES = [
